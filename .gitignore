@@ -1,0 +1,11 @@
+data/
+dcgm/
+out/
+results/
+src_vae/__pycache__/
+src_segmentation/
+wandb/
+change_mask_vals.py
+f0_data.ipynb
+medaka_sample_train_list.txt
+run_napari.py
