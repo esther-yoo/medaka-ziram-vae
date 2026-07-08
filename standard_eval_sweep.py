@@ -76,13 +76,13 @@ def report(X, y, name):
 X_train = ZiramF0Dataset(img_type="full_dataset", train=True, val=False, test=False, apply_transform=False)
 X_val = ZiramF0Dataset(img_type="full_dataset", train=False, val=True, test=False, apply_transform=False)
 
-loader_train = DataLoader(X_train, batch_size=X_train.__len__(), shuffle=False, num_workers=1, pin_memory=True)
+loader_train = DataLoader(X_train, batch_size=X_train.__len__(), shuffle=False, num_workers=15, pin_memory=True)
 train_all = next(iter(loader_train))
-loader_val = DataLoader(X_val, batch_size=X_val.__len__(), shuffle=False, num_workers=1, pin_memory=True)
+loader_val = DataLoader(X_val, batch_size=X_val.__len__(), shuffle=False, num_workers=15, pin_memory=True)
 val_all = next(iter(loader_val))
 
 ### Get all directory names in sweep folder
-sweep_id = "0a39n1bn"
+sweep_id = "mmosfr4n" # TODO: CHANGE THIS TO SWEEP NAME
 
 sweep_dir = f"/nfs/research/birney/users/esther/medaka-ziram/results/sweep_{sweep_id}/"
 run_dirs = [p.name for p in Path(sweep_dir).iterdir() if p.is_dir()]
@@ -90,11 +90,14 @@ run_dirs = [p.name for p in Path(sweep_dir).iterdir() if p.is_dir()]
 api = wandb.Api() # Initialize wandb api
 
 # Get mapping info between run ID's and run names
-runs_map_df = pd.read_csv(f"{sweep_dir}/runs_name_to_id.csv")
+runs_map_df = pd.read_csv(f"{sweep_dir}/runs_name_to_id_hyperparams.csv")
 runs_map_dict = dict(zip(runs_map_df["run_name"], runs_map_df["run_id"]))
 
 ### Iterate through each of the sweep run directories
 for i in tqdm(run_dirs):
+    # Flush memory cache
+    torch.cuda.empty_cache()
+
     model_dir = f"/nfs/research/birney/users/esther/medaka-ziram/results/sweep_{sweep_id}/{i}/"
     
     ### Get run data
@@ -104,14 +107,21 @@ for i in tqdm(run_dirs):
     run = api.run(f"ey267-university-of-cambridge/Ziram VAE Training/{sweep_id}/{run_id}")
 
     ### Initialize and load model
+    # model = VAEModel(
+    #     input_dim=X_train[0][0].shape,
+    #     latent_dim=run.config['latent_dim'],
+    #     capacity=run.config['capacity'],
+    #     depth=run.config['depth'],
+    #     kld_b=run.config['kld_b'],
+    #     batch_size=run.config['batch_size'],
+    #     dropout_p=run.config['dropout_p'],
+    #     device=device
+    # )
     model = VAEModel(
         input_dim=X_train[0][0].shape,
         latent_dim=run.config['latent_dim'],
-        capacity=run.config['capacity'],
-        depth=run.config['depth'],
         kld_b=run.config['kld_b'],
         batch_size=run.config['batch_size'],
-        dropout_p=run.config['dropout_p'],
         device=device
     )
 
@@ -151,12 +161,14 @@ for i in tqdm(run_dirs):
 
 
     ### Get VAE latent means
-    train_all_means, train_all_logvars = model.vae.get_latent(
-        train_all[0].to(device)
-    )
-    val_all_means, val_all_logvars = model.vae.get_latent(
-        val_all[0].to(device)
-    )
+    with torch.no_grad():
+        train_all_means, train_all_logvars = model.vae.get_latent(
+            train_all[0].to(device)
+        )
+        val_all_means, val_all_logvars = model.vae.get_latent(
+            val_all[0].to(device)
+        )
+        
     train_all_means = train_all_means.detach().cpu().numpy()
     val_all_means = val_all_means.detach().cpu().numpy()
 

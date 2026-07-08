@@ -2,9 +2,9 @@
 
 #SBATCH --gres=gpu:a100:1
 #SBATCH --time=4:00:00
-#SBATCH --cpus-per-task=16
+#SBATCH --cpus-per-task=8
 #SBATCH --mem=80G
-#SBATCH --array=1-50  # 50 parallel agents
+#SBATCH --array=1-100  # 50 parallel agents
 #SBATCH -o /nfs/research/birney/users/esther/medaka-ziram/out/%x-%j.out
 
 module purge
@@ -25,4 +25,9 @@ micromamba activate $MICROMAMBA_ENV
 
 
 ### Run command (> wandb sweep sweep.yaml --project "Ziram VAE Training") on CLI first
-python f0_vae_sweep.py --sweep_id 0a39n1bn
+python f0_vae_sweep.py --sweep_id 395cmn4b
+
+# 395cmn4b = sweep with resnet-based vae, rebalanced train set to include 200 F2
+# 6o8li1mg = sweep with resnet-based vae, rebalanced train set to include 500 F2
+# mmosfr4n = sweep with resnet-based vae, original trainset with only F0
+# 0a39n1bn = sweep with standard convolutional vae, original trainset

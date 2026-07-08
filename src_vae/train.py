@@ -83,10 +83,10 @@ def train_vae(
     n_test = X_test.__len__()
 
     # --------- preprocess TRAIN ---------
-    loader_train = DataLoader(X_train, batch_size=batch_size, shuffle=True, num_workers=15, pin_memory=True)
+    loader_train = DataLoader(X_train, batch_size=batch_size, shuffle=True, num_workers=7, pin_memory=True)
 
     # --------- preprocess TEST using TRAIN stats ---------
-    loader_test = DataLoader(X_test, batch_size=batch_size, shuffle=False, num_workers=15, pin_memory=True)
+    loader_test = DataLoader(X_test, batch_size=batch_size, shuffle=False, num_workers=7, pin_memory=True)
 
     # --------- model ---------
     model = VAEModel(

@@ -28,7 +28,7 @@ def sweep_train():
     ### Load data
     print("Loading data...")
     X_train = ZiramF0Dataset(img_type="full_dataset", train=True, val=False, test=False, apply_transform=True)
-    X_val = ZiramF0Dataset(img_type="full_dataset", train=False, val=True, test=False, apply_transform=True)
+    X_val = ZiramF0Dataset(img_type="full_dataset", train=False, val=True, test=False, apply_transform=False)
     print("Done loading data!")
 
     with wandb.init() as run:
@@ -37,13 +37,13 @@ def sweep_train():
             X_train=X_train,
             X_test=X_val,
             latent_dim=config.latent_dim,
-            capacity=config.capacity,
-            depth=config.depth,
+            # capacity=config.capacity,
+            # depth=config.depth,
             batch_size=config.batch_size,
             lr=config.lr,
-            dropout_p=config.dropout_p,
+            # dropout_p=config.dropout_p,
             kld_b=config.kld_b,
-            n_epochs=2000,
+            n_epochs=4000,
             device=device,
             export_dir=f"./results/sweep_{run.sweep_id}/{export_date}_{run.name}",
             wandb_flag=True
@@ -51,7 +51,7 @@ def sweep_train():
 
 if __name__ == "__main__":
     ### Get sweep config
-    with open('/nfs/research/birney/users/esther/medaka-ziram/sweep.yaml', 'r') as f:
+    with open('/nfs/research/birney/users/esther/medaka-ziram/sweep_resnet.yaml', 'r') as f:
         sweep_config = yaml.safe_load(f)
 
     ### For passing training parameters from shell script
@@ -90,4 +90,4 @@ if __name__ == "__main__":
     wandb.agent(sweep_id = args.sweep_id,
                 function = sweep_train,
                 project = "Ziram VAE Training",
-                count = 2)
+                count = 1)

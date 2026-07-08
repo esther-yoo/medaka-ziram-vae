@@ -49,15 +49,25 @@ class ZiramF0Dataset(Dataset):
                                     (i.endswith('.tif') and (os.path.splitext(i)[0] in self.metadata["CO4"].values if self.img_type == "fluorescent" else os.path.splitext(i)[0] in self.metadata["CO6"].values))])
         
         elif self.img_type == "full_dataset": # For data in path /nfs/research/birney/users/esther/medaka-ziram/data/full_dataset/
-            self.metadata = pd.read_csv("/nfs/research/birney/users/esther/medaka-ziram/data/Ziram_Full_Dataset_balanced.csv")
+            # self.metadata = pd.read_csv("/nfs/research/birney/users/esther/medaka-ziram/data/Ziram_Full_Dataset_balanced.csv") # Only F0 in training set
+            self.metadata = pd.read_csv("/nfs/research/birney/users/esther/medaka-ziram/data/Ziram_Full_Dataset_trainrebalancedF2.csv") # F0 and F2 in training set
             self.metadata['image_name'] = self.metadata['image_path'].apply(lambda x: os.path.splitext(os.path.basename(x))[0])
 
+            # Only F0 in training set
+            # if self.train:
+            #     self.images_root_path = "/nfs/research/birney/users/esther/medaka-ziram/data/full_dataset/train/"
+            # elif self.val:
+            #     self.images_root_path = "/nfs/research/birney/users/esther/medaka-ziram/data/full_dataset/val/"
+            # elif self.test:
+            #     self.images_root_path = "/nfs/research/birney/users/esther/medaka-ziram/data/full_dataset/test/"
+
+            # F0 and F2 in training set
             if self.train:
-                self.images_root_path = "/nfs/research/birney/users/esther/medaka-ziram/data/full_dataset/train/"
+                self.images_root_path = "/nfs/research/birney/users/esther/medaka-ziram/data/full_dataset_trainrebalanced/train/"
             elif self.val:
-                self.images_root_path = "/nfs/research/birney/users/esther/medaka-ziram/data/full_dataset/val/"
+                self.images_root_path = "/nfs/research/birney/users/esther/medaka-ziram/data/full_dataset_trainrebalanced/val/"
             elif self.test:
-                self.images_root_path = "/nfs/research/birney/users/esther/medaka-ziram/data/full_dataset/test/"
+                self.images_root_path = "/nfs/research/birney/users/esther/medaka-ziram/data/full_dataset_trainrebalanced/test/"
 
             self.images = sorted([self.images_root_path + i for i in os.listdir(self.images_root_path) if i.endswith('.tif')])
         

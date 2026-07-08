@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from .vae import VAE
+from .vae_resnet import VAE_ResNet
 
 
 class VAEModel(nn.Module):
@@ -25,15 +26,24 @@ class VAEModel(nn.Module):
         self.dropout_p = dropout_p
         self.kld_b = kld_b
 
-        self.vae = VAE(
+        # self.vae = VAE(
+        #     input_dim = self.input_dim,
+        #     latent_dim = self.latent_dim,
+        #     capacity = capacity,
+        #     depth = depth,
+        #     batch_size = self.batch_size,
+        #     dropout_p = self.dropout_p,
+        #     device = self.device
+        # )
+        # print("Model is standard CNN")
+
+        self.vae = VAE_ResNet(
             input_dim = self.input_dim,
             latent_dim = self.latent_dim,
-            capacity = capacity,
-            depth = depth,
             batch_size = self.batch_size,
-            dropout_p = self.dropout_p,
             device = self.device
         )
+        print("Model is ResNet")
 
         self.to(self.device)
 
