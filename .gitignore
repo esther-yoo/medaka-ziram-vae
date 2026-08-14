@@ -10,7 +10,12 @@ change_mask_vals.py
 f0_data.ipynb
 medaka_sample_train_list.txt
 run_napari.py
-genetics_results/
+genetics_results/*
+!genetics_results/genetics_results.R
+!genetics_results/genetics_results_pca.R
+!genetics_results/genetics_results_shaperesid.R
+!genetics_results/compute_hsq_ci.R
+!genetics_results/run_gcta.sh
 f0_vae.ipynb
 sam_inference.ipynb
 standard_eval.ipynb
