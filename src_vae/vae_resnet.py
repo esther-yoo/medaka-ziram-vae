@@ -50,14 +50,6 @@ class VAE_ResNet(nn.Module):
         ### Decoder
         self.decoder = nn.ModuleList()
 
-        # self.decoder.append(
-        #     nn.Sequential(
-        #         nn.Linear(latent_dim,
-        #                   self.decoder_channels),
-                
-        #     )
-        # )
-
         self.decoder.append(
             nn.Sequential(
                 nn.Linear(latent_dim,               # Latent dim --> 512
@@ -144,7 +136,7 @@ class VAE_ResNet(nn.Module):
         ### Get latents
         mean = self.mean(x)
         logvar = self.var(x)
-        logvar = torch.clamp(logvar, max = 10.0)
+        # logvar = torch.clamp(logvar, max = 10.0)
         
         ### Reparameterize
         z = self.reparameterize(mean, logvar)
@@ -153,7 +145,6 @@ class VAE_ResNet(nn.Module):
         for i in range(self.depth+1):
             z = self.decoder[i](z)
             if i == 0:
-                # z = z.view(-1, self.decoder_channels, 1, 1)
                 z = z.reshape(x.shape[0],
                                 self.capacity * (2**(self.depth-1)),
                                 self.input_dim[-1] // (2**(self.depth+1)),
@@ -167,23 +158,13 @@ class VAE_ResNet(nn.Module):
         """
         # Calculate mean, logvar of input image
         mean, logvar = self.get_latent(x)
-        logvar = torch.clamp(logvar, max = 10.0)
+        # logvar = torch.clamp(logvar, max = 10.0)
 
         # Decode
         recon_x = self.decode(mean, logvar)
 
-        # Without sigmoid
-        # print(recon_x.min(), recon_x.max())
-
         # Calculate losses
-        # print("mean: ", mean)
-        # print("logvar: ", logvar)
-        # recon_loss = (self.criterion(recon_x, x)).mean()
-        # recon_loss = F.binary_cross_entropy_with_logits(recon_x, x, reduction="sum").mean(dim=0) / (x.shape[2] * x.shape[3])
-        recon_loss = F.mse_loss(recon_x, x, reduction="sum").mean(dim=0) / (x.shape[2] * x.shape[3])
-        # print(x.shape)
-        kld_loss = (-0.5 * torch.sum(1 + logvar - mean.pow(2) - logvar.exp(), dim=-1)).mean(dim=0) / (x.shape[2] * x.shape[3])
-        # print("recon_loss: ", recon_loss)
-        # print("kld_loss: ", kld_loss)
+        recon_loss = F.mse_loss(recon_x, x, reduction="none").mean(dim=[1, 2, 3]).mean(dim=0)
+        kld_loss = -0.5 * torch.mean(1 + logvar - mean.pow(2) - logvar.exp(), dim=-1).mean(dim=0)
 
         return recon_loss, kld_loss

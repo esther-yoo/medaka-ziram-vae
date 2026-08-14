@@ -28,7 +28,7 @@ print("Loading data...")
 # X_test = ZiramF0Dataset(img_type="brightfield", train=False)
 
 X_train = ZiramF0Dataset(img_type="full_dataset", train=True, val=False, test=False, apply_transform=True)
-X_val = ZiramF0Dataset(img_type="full_dataset", train=False, val=True, test=False, apply_transform=True)
+X_val = ZiramF0Dataset(img_type="full_dataset", train=False, val=True, test=False, apply_transform=False)
 
 print("Done loading data!")
 
@@ -38,20 +38,22 @@ export_date = datetime.datetime.now().strftime("%Y%m%d-%H%M")
 
 
 # Train VAE
-export_dir = f"./results/{export_date}-vae352-mse-latent64-capacity32-kld1-imagenormbrightnesscrop-nosigmoid/"
+export_dir = f"./results/{export_date}-vae_resnet_testkld/"
 print(export_dir)
 
 model, history = train_vae(
     X_train=X_train,
     X_test=X_val,
-    latent_dim=64,
-    capacity=32,
-    depth=5,
-    batch_size=128,
-    lr=1e-4,
-    dropout_p=0.2,
+    latent_dim=128,
+    batch_size=64,
+    lr=1e-3,
     kld_b=1,
-    n_epochs=7000,
+    n_epochs=2000,
+
+    # capacity=32,
+    # depth=5,
+    # dropout_p=0.3,
+
     device=device,
     export_dir=export_dir,
     wandb_flag=True

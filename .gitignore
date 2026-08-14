@@ -3,9 +3,17 @@ dcgm/
 out/
 results/
 src_vae/__pycache__/
+src_vae/vae.py
 src_segmentation/
 wandb/
 change_mask_vals.py
 f0_data.ipynb
 medaka_sample_train_list.txt
 run_napari.py
+genetics_results/
+f0_vae.ipynb
+sam_inference.ipynb
+standard_eval.ipynb
+standard_eval.py
+standard_eval_sweep.py
+sweep.yaml

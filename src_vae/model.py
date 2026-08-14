@@ -56,6 +56,10 @@ class VAEModel(nn.Module):
         recon_loss = recon_loss #/ batch_x.shape[0]
         kld_loss = kld_loss 
 
-        total = recon_loss + self.kld_b*kld_loss
+        # total = recon_loss + self.kld_b*kld_loss
+        total = (recon_loss + self.kld_b * kld_loss).mean(dim=0)
+        recon_loss = recon_loss.mean(dim=0)
+        kld_loss = kld_loss.mean(dim=0)
+
 
         return total, recon_loss, kld_loss

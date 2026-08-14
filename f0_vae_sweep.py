@@ -51,7 +51,7 @@ def sweep_train():
 
 if __name__ == "__main__":
     ### Get sweep config
-    with open('/nfs/research/birney/users/esther/medaka-ziram/sweep_resnet.yaml', 'r') as f:
+    with open('/nfs/research/birney/users/esther/medaka-ziram/sweep_resnet_grid.yaml', 'r') as f:
         sweep_config = yaml.safe_load(f)
 
     ### For passing training parameters from shell script

@@ -3,6 +3,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 import torch.nn.functional as F
 import torchvision.transforms.functional as transF
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from .model import VAEModel
 from .data import ZiramF0Dataset
@@ -13,6 +14,7 @@ import pickle
 
 import wandb
 import yaml
+import math
 
 os.environ["WANDB_CACHE_DIR"] = "/hps/nobackup/birney/users/esther/"
 
@@ -45,7 +47,36 @@ def log_predictions(model, dataloader, device, epoch):
                 break
     wandb.log({"examples_epoch_{}".format(epoch): images_to_log})
 
-# sweep_id = wandb.sweep(sweep=sweep_config, project="Ziram VAE Training")
+
+class CyclicalCosineAnnealing:
+    def __init__(self, max_beta: float, cycle_epochs: int,
+                 ramp_fraction: float = 0.5, start: float = 0.0):
+        """
+        max_beta:      the target beta value to ramp up to (e.g. 0.01)
+        cycle_epochs:  number of epochs per full cycle (ramp + hold)
+        ramp_fraction: fraction of each cycle spent ramping (0-1);
+                       the remainder is held at max_beta
+        start:         beta value at the start of each ramp (usually 0)
+        """
+        assert 0 < ramp_fraction <= 1.0, "ramp_fraction must be in (0, 1]"
+        self.max_beta = max_beta
+        self.cycle_epochs = cycle_epochs
+        self.ramp_fraction = ramp_fraction
+        self.start = start
+        self.ramp_len = cycle_epochs * ramp_fraction
+ 
+    def get_beta(self, epoch: int) -> float:
+        pos_in_cycle = epoch % self.cycle_epochs
+ 
+        if pos_in_cycle >= self.ramp_len:
+            # Holding phase: stay at max_beta for the rest of the cycle
+            return self.max_beta
+ 
+        # Ramping phase: cosine ease-in from `start` to `max_beta`.
+        # cos(pi) = -1 -> progress=0 at pos_in_cycle=0
+        # cos(0)  =  1 -> progress=1 at pos_in_cycle=ramp_len
+        progress = (1 - math.cos(math.pi * pos_in_cycle / self.ramp_len)) / 2
+        return self.start + progress * (self.max_beta - self.start)
 
 def train_vae(
     X_train,
@@ -55,7 +86,7 @@ def train_vae(
     depth: int = 4,
     batch_size: int = 64,
     lr: float = 1e-3,
-    n_epochs: int = 200,
+    n_epochs: int = 2000,
     dropout_p: float = 0.0,
     kld_b: float = 1.0,
     device: str = "cpu",
@@ -102,7 +133,14 @@ def train_vae(
     model.train()
 
     # --------- optimizers ---------
+    kld_cycle = 8
     opt_vae   = torch.optim.Adam(model.vae.parameters(), lr=lr)
+    lr_scheduler = ReduceLROnPlateau(opt_vae, mode="min", factor=0.5, patience=((n_epochs // kld_cycle) + 5))
+
+    # --------- kld beta schedule ----------
+    # if kld_b >= 1e-2:
+    if kld_b >= 1.0:
+        kld_schedule = CyclicalCosineAnnealing(max_beta=kld_b, cycle_epochs=n_epochs // kld_cycle, ramp_fraction=0.5)
 
     # --------- history containers ---------
     history = {
@@ -116,6 +154,9 @@ def train_vae(
 
     # --------- training loop ---------
     best_val_loss = float('inf')
+    best_val_epoch = 0
+    best_val_recon_loss = float('inf')
+    best_val_recon_epoch = 0
     for epoch in range(1, n_epochs + 1):
         # ===== TRAIN PHASE =====
         model.train()
@@ -123,6 +164,9 @@ def train_vae(
         total_loss = 0.0
         total_recon = 0.0
         total_kld = 0.0
+
+        # current_beta = kld_schedule.get_beta(epoch) if kld_b >= 1e-2 else kld_b
+        current_beta = kld_schedule.get_beta(epoch) if kld_b >= 1.0 else kld_b
 
         for batch_y, _, _, _, _, _ in loader_train:
             batch_y = batch_y.to(device)
@@ -134,6 +178,8 @@ def train_vae(
                 recon_loss,
                 kld_loss
             ) = model.batch_loss(batch_y)
+
+            loss = recon_loss + current_beta*kld_loss
 
             loss.backward()
 
@@ -150,6 +196,9 @@ def train_vae(
                         "batch_train_recon_loss": recon_loss.item() * bs,
                         "batch_train_kld_loss": kld_loss.item() * bs
                         })
+
+        lr_scheduler.step(best_val_recon_loss) # changed from best_val_loss to best_val_recon_loss
+        current_lr = opt_vae.param_groups[0]["lr"]
 
         avg_loss         = total_loss         / n_train
         avg_recon        = total_recon        / n_train
@@ -178,6 +227,8 @@ def train_vae(
                 recon_test,
                 kld_test
             ) = model.batch_loss(batch_y_test)
+
+            loss_test = recon_test + current_beta*kld_test
 
             bs = batch_y_test.shape[0]
             total_test_loss         += loss_test.item()        * bs
@@ -219,19 +270,44 @@ def train_vae(
                     "epoch_train_kld_loss": avg_kld,
                     "epoch_test_loss": avg_test_loss,
                     "epoch_test_recon_loss": avg_test_recon,
-                    "epoch_test_kld_loss": avg_test_kld
+                    "epoch_test_kld_loss": avg_test_kld,
+                    "best_test_loss": best_val_loss,
+                    "best_test_epoch": best_val_epoch,
+                    "best_test_recon_loss": best_val_recon_loss,
+                    "best_test_recon_epoch": best_val_recon_epoch,
+                    "lr": current_lr,
+                    "kld_b": current_beta
                     })
 
             if epoch % 50 == 0:
                 log_predictions(model.vae, loader_train, device, epoch)
 
+        # Terminate training if validation loss has not improved for 100 epochs
         if avg_test_loss < best_val_loss:
             best_val_loss = avg_test_loss
+            best_val_epoch = epoch
             patience_counter = 0
+
+            if not os.path.exists(export_dir):
+                os.makedirs(export_dir+"/best_running_model/")
+            
+            print("Writing best overall model...")
+            torch.save(model.state_dict(), export_dir+f"/best_running_model/best_model_val_loss.pt")
         else:
             patience_counter += 1
-            if patience_counter >= 100:
+            if patience_counter >= ((n_epochs // kld_cycle) + 50):
                 break
+
+        if avg_test_recon < best_val_recon_loss:
+            best_val_recon_loss = avg_test_recon
+            best_val_recon_epoch = epoch
+
+            if not os.path.exists(export_dir):
+                os.makedirs(export_dir+"/best_running_model/")
+
+            print("Writing best reconstructing model...")
+            torch.save(model.state_dict(), export_dir+f"/best_running_model/best_model_val_recon_loss.pt")
+
 
     # Save results
     if not os.path.exists(export_dir):
